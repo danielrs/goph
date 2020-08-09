@@ -5,10 +5,20 @@ package goph
 
 import (
 	"io/ioutil"
+
 	"golang.org/x/crypto/ssh"
 )
 
 type Auth []ssh.AuthMethod
+
+// Combines multiple Auth methods.
+func CombineAuth(auths ...Auth) Auth {
+	result := make([]ssh.AuthMethod, 0, len(auths))
+	for _, auth := range auths {
+		result = append(result, auth...)
+	}
+	return result
+}
 
 // Get auth method from raw password.
 func Password(pass string) Auth {
@@ -18,17 +28,26 @@ func Password(pass string) Auth {
 }
 
 // Get auth method from private key with or without passphrase.
+// Panics on error.
 func Key(prvFile string, passphrase string) Auth {
-
-	signer, err := GetSigner(prvFile, passphrase)
-
+	keyAuth, err := TryKey(prvFile, passphrase)
 	if err != nil {
 		panic(err)
+	}
+	return keyAuth
+}
+
+// Get auth method from private key with or without passphrase.
+func TryKey(prvFile string, passphrase string) (Auth, error) {
+
+	signer, err := GetSigner(prvFile, passphrase)
+	if err != nil {
+		return nil, err
 	}
 
 	return Auth{
 		ssh.PublicKeys(signer),
-	}
+	}, nil
 }
 
 // Get private key signer.
